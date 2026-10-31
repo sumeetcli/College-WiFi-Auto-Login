@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Cleartext HTTP permitted strictly for the Sophos captive portal endpoint -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">172.16.16.16</domain>
+    </domain-config>
+    <!-- All other domains strictly enforce HTTPS with system certificates -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

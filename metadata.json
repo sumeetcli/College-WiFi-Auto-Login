@@ -1,0 +1,6 @@
+{
+  "name": "Campus WiFi",
+  "description": "Lightweight, battery-efficient auto-login client for Sophos campus Wi-Fi captive portals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

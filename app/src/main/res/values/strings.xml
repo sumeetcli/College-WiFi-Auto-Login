@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Campus WiFi</string>
+    <string name="notification_channel_name">Campus WiFi Status</string>
+    <string name="notification_channel_desc">Notifications for captive portal auto-login results</string>
+    <string name="foreground_service_channel_name">Reliability Service</string>
+    <string name="foreground_service_channel_desc">Silent background monitor for devices that terminate network callbacks</string>
+</resources>
