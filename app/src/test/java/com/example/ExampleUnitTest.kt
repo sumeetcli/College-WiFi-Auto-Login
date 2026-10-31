@@ -24,6 +24,20 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun parsePortalXmlResponse_alreadySignedIn() {
+        val xml = """
+            <response transactionid="">
+                <status>LOGIN</status>
+                <message><![CDATA[You are signed in as student123]]></message>
+            </response>
+        """.trimIndent()
+
+        val result = PortalRepository.parsePortalXmlResponse(xml)
+        assertTrue(result.isSuccess)
+        assertEquals("You are signed in as student123", result.message)
+    }
+
+    @Test
     fun parsePortalXmlResponse_wrongCredentials() {
         val xml = """
             <response transactionid="">

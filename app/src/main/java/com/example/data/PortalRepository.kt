@@ -217,6 +217,70 @@ object PortalRepository {
     }
 
     /**
+     * Checks current login status using Sophos heartbeat mode (mode=192).
+     * Returns true if session is currently active (LIVE / signed in).
+     */
+    fun checkStatus(username: String, network: Network? = null): PortalResponse {
+        var conn: HttpURLConnection? = null
+        return try {
+            val url = URL(LOGIN_ENDPOINT)
+            conn = if (network != null) {
+                network.openConnection(url) as HttpURLConnection
+            } else {
+                url.openConnection() as HttpURLConnection
+            }
+
+            conn.requestMethod = "POST"
+            conn.instanceFollowRedirects = false
+            conn.connectTimeout = TIMEOUT_CONNECT_MS
+            conn.readTimeout = TIMEOUT_READ_MS
+            conn.doOutput = true
+            conn.doInput = true
+
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            conn.setRequestProperty("Origin", ORIGIN_URL)
+            conn.setRequestProperty("Referer", REFERER_URL)
+            conn.setRequestProperty("Connection", "close")
+
+            val epochMillis = System.currentTimeMillis().toString()
+            val postData = buildString {
+                append("mode=192")
+                append("&username=").append(URLEncoder.encode(username, "UTF-8"))
+                append("&a=").append(epochMillis)
+                append("&producttype=0")
+            }
+
+            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
+                writer.write(postData)
+                writer.flush()
+            }
+
+            val responseCode = conn.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                return PortalResponse(
+                    isSuccess = false,
+                    status = "HTTP_$responseCode",
+                    message = "Status check HTTP error: $responseCode"
+                )
+            }
+
+            val responseBody = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8)).use { reader ->
+                reader.readText()
+            }
+
+            parsePortalXmlResponse(responseBody)
+        } catch (e: Exception) {
+            PortalResponse(
+                isSuccess = false,
+                status = "ERROR",
+                message = e.localizedMessage ?: "Status check error"
+            )
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
      * Parses the ~280-byte XML response from the portal.
      * Extracts <status> and <message>.
      * Sophos responses typically:
@@ -275,13 +339,24 @@ object PortalRepository {
             val statusUpper = status.uppercase()
             val msgLower = message.lowercase()
 
-            val isSuccess = (statusUpper == "LIVE" || statusUpper == "SUCCESS" || msgLower.contains("successfully logged in")) &&
-                !msgLower.contains("wrong") &&
-                !msgLower.contains("failed") &&
-                !msgLower.contains("limit") &&
-                !msgLower.contains("exceeded") &&
-                !msgLower.contains("blocked") &&
-                !msgLower.contains("invalid")
+            val hasLoggedInIndicator = statusUpper == "LIVE" ||
+                statusUpper == "SUCCESS" ||
+                msgLower.contains("signed in") ||
+                msgLower.contains("logged in") ||
+                msgLower.contains("successfully") ||
+                msgLower.contains("already active") ||
+                msgLower.contains("already connected")
+
+            val hasFailureIndicator = msgLower.contains("wrong") ||
+                msgLower.contains("failed") ||
+                msgLower.contains("limit") ||
+                msgLower.contains("exceeded") ||
+                msgLower.contains("blocked") ||
+                msgLower.contains("invalid") ||
+                msgLower.contains("expired") ||
+                msgLower.contains("denied")
+
+            val isSuccess = hasLoggedInIndicator && !hasFailureIndicator
 
             val displayMessage = when {
                 message.isNotBlank() -> message

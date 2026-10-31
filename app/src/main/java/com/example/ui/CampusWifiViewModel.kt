@@ -55,6 +55,31 @@ class CampusWifiViewModel(application: Application) : AndroidViewModel(applicati
     fun onResume() {
         loadState()
         refreshUsageStats()
+        verifyCurrentPortalStatus()
+    }
+
+    private fun verifyCurrentPortalStatus() {
+        if (!prefs.hasCredentials) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val network = cm?.activeNetwork ?: return@launch
+            val reachable = PortalRepository.isPortalReachable(network)
+            if (reachable) {
+                val statusResult = PortalRepository.checkStatus(prefs.username, network)
+                if (statusResult.isSuccess) {
+                    withContext(Dispatchers.Main) {
+                        prefs.updateStatus(PortalStatusCode.LOGGED_IN, statusResult.message)
+                        _uiState.update {
+                            it.copy(
+                                statusCode = PortalStatusCode.LOGGED_IN,
+                                statusMessage = statusResult.message,
+                                lastStatusTime = System.currentTimeMillis()
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun loadState() {
